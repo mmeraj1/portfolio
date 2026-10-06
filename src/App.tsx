@@ -236,6 +236,22 @@ function ResearchPage() {
 
 function PortfolioPage({ page }: { page: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [contactSubmitted, setContactSubmitted] = useState(false);
+
+  function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get('name') ?? '').trim();
+    const phone = String(formData.get('phone') ?? '').trim();
+    const email = String(formData.get('email') ?? '').trim();
+    const message = String(formData.get('message') ?? '').trim();
+    const subject = encodeURIComponent(`Portfolio message from ${name}`);
+    const body = encodeURIComponent(`Name: ${name}\nContact number: ${phone}\nEmail: ${email}\n\nMessage:\n${message}`);
+    const recipient = ['meet.meraj2000', 'gmail.com'].join('@');
+
+    window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
+    setContactSubmitted(true);
+  }
 
   return (
     <>
@@ -323,10 +339,19 @@ function PortfolioPage({ page }: { page: string }) {
 
         {page === 'research' && <ResearchPage />}
 
-        {page === 'contact' && <section className="contact section-wrap section-pad" id="contact"><div className="section-kicker"><span>05 / YOUR MOVE</span><span>CONTACT</span></div><div className="contact-layout"><div><p className="contact-overline">HAVE A GOOD PROBLEM?</p><h2>Let’s build<br /><span>what’s next.</span></h2><p className="contact-copy">If you’re working on something meaningful in AI, data or intelligent products, I’d like to hear about it.</p><a className="button button-primary contact-button" href="mailto:meet.meraj2000@gmail.com">Start a conversation <ArrowIcon /></a></div><div className="contact-details"><a href="mailto:meet.meraj2000@gmail.com"><span>EMAIL</span><strong>meet.meraj2000@gmail.com</strong><ArrowIcon /></a><a href="tel:+917019709092"><span>PHONE</span><strong>+91 70197 09092</strong><ArrowIcon /></a><a href="https://www.linkedin.com/in/mdmeraj" target="_blank" rel="noreferrer"><span>LINKEDIN</span><strong>linkedin.com/in/mdmeraj</strong><ArrowIcon /></a><div className="contact-location"><span>BASED IN</span><strong>Bangalore, India <span className="location-dot">●</span></strong></div></div></div></section>}
+        {page === 'contact' && <section className="contact section-wrap section-pad" id="contact"><div className="section-kicker"><span>05 / YOUR MOVE</span><span>CONTACT</span></div><div className="contact-layout"><div><p className="contact-overline">HAVE A GOOD PROBLEM?</p><h2>Let’s build<br /><span>what’s next.</span></h2><p className="contact-copy">If you’re working on something meaningful in AI, data or intelligent products, I’d like to hear about it.</p><p className="contact-copy">Send me a note using the form and I’ll get back to you.</p></div><form className="contact-form" onSubmit={handleContactSubmit}>
+          <div className="contact-form-row">
+            <label>Name<input autoComplete="name" name="name" placeholder="Your name" required /></label>
+            <label>Contact number<input autoComplete="tel" name="phone" placeholder="Your phone number" required type="tel" /></label>
+          </div>
+          <label>Email<input autoComplete="email" name="email" placeholder="you@example.com" required type="email" /></label>
+          <label>Message<textarea name="message" placeholder="How can I help?" required rows={5} /></label>
+          <button className="button button-primary contact-button" type="submit">Send message <ArrowIcon /></button>
+          <p className="contact-form-note" aria-live="polite">{contactSubmitted ? 'Your email app should open with the message ready to send.' : 'Submitting opens your email app so you can review and send your message.'}</p>
+        </form></div></section>}
       </main>
 
-      <footer className="site-footer section-wrap"><Link className="brand" to="/" aria-label="Mohammad Meraj, home"><span className="brand-mark">MM</span><span className="brand-copy"><strong>MOHAMMAD MERAJ</strong><small>Senior Generative AI Engineer | Lead Data Scientist</small></span></Link><span className="footer-note">BUILDING INTELLIGENT SYSTEMS FOR A BETTER TOMORROW</span><Link className="back-top mono" to="/">BACK TO TOP ↑</Link></footer>
+      <footer className="site-footer section-wrap"><Link className="brand" to="/" aria-label="Mohammad Meraj, home"><span className="brand-mark">MM</span><span className="brand-copy"><strong>MOHAMMAD MERAJ</strong><small>Senior Generative AI Engineer | Lead Data Scientist</small></span></Link><Link className="back-top mono" to="/">BACK TO TOP ↑</Link></footer>
     </>
   );
 }

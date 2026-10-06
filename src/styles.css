@@ -165,6 +165,16 @@ h2 { margin-bottom: 0; font-size: clamp(42px, 5.5vw, 70px); line-height: 1.08; l
 .research-access-error { margin: 0; color: #ff9cba; font-size: 11px; line-height: 1.6; }
 
 .contact { border-top: 1px solid var(--line); padding-bottom: 105px; }.contact-layout { display: grid; grid-template-columns: 1fr .7fr; gap: 12%; align-items: center; margin-top: 62px; }.contact-overline { margin-bottom: 20px; color: var(--lime); font-size: 8px; }.contact h2 { font-size: clamp(63px, 8vw, 99px); }.contact-copy { max-width: 390px; margin: 22px 0 26px; color: #9ba095; font-size: 13px; line-height: 1.85; }.contact-button { min-height: 50px; }.contact-details { border-top: 1px solid var(--line); }.contact-details > a, .contact-location { min-height: 70px; display: grid; grid-template-columns: 76px 1fr 20px; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }.contact-details > a > span, .contact-location > span { color: #82897c; font-size: 7px; }.contact-details strong, .contact-location strong { overflow-wrap: anywhere; font-size: 11px; font-weight: 500; }.contact-details .arrow-icon { color: var(--lime); font-size: 16px; }.contact-location { grid-template-columns: 76px 1fr; }.location-dot { color: var(--lime); font-size: 8px; padding-left: 5px; }
+.contact-form { display: grid; gap: 17px; padding-top: 20px; border-top: 1px solid var(--line); }
+.contact-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.contact-form label { display: grid; gap: 8px; color: #aeb2a7; font: 9px var(--mono); letter-spacing: .06em; }
+.contact-form input, .contact-form textarea { width: 100%; min-width: 0; padding: 13px 12px; border: 1px solid rgba(233,239,220,.15); border-radius: 3px; outline: none; color: var(--text); background: #151813; font: 11px 'Manrope', sans-serif; letter-spacing: 0; resize: vertical; transition: border-color .2s ease, box-shadow .2s ease; }
+.contact-form input { min-height: 45px; }
+.contact-form textarea { min-height: 125px; line-height: 1.65; }
+.contact-form input::placeholder, .contact-form textarea::placeholder { color: #737a6e; }
+.contact-form input:focus-visible, .contact-form textarea:focus-visible { border-color: var(--lime); box-shadow: 0 0 0 2px rgba(210,251,88,.1); }
+.contact-form .contact-button { justify-self: start; border: 0; cursor: pointer; }
+.contact-form-note { margin: -5px 0 0; color: #7f8679; font-size: 9px; line-height: 1.7; }
 .site-footer { min-height: 88px; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }.footer-note, .back-top { color: #7f8679; font-size: 7px; }.back-top { color: var(--lime); }
 
 @media (max-width: 900px) {
@@ -189,7 +199,7 @@ h2 { margin-bottom: 0; font-size: clamp(42px, 5.5vw, 70px); line-height: 1.08; l
   .education-band { grid-template-columns: 1fr 1fr; gap: 24px 15px; }.degree strong { font-size: 11px; }.degree-cert { grid-column: 1 / -1; }
   .research-layout { grid-template-columns: 1fr; gap: 30px; margin-top: 42px; }.research-intro h2 { font-size: 48px; }.research-intro > p:last-child { font-size: 12px; }.research-card { padding: 21px 18px 0; }.research-card h3 { margin-block: 23px; font-size: 21px; }.research-tags span { font-size: 8px; padding: 7px 8px; }
   .research-access-form .button { width: 100%; }
-  .contact { padding-bottom: 80px; }.contact-layout { grid-template-columns: 1fr; gap: 45px; margin-top: 42px; }.contact h2 { font-size: 75px; }.contact-copy { font-size: 12px; }.contact-details > a, .contact-location { grid-template-columns: 62px 1fr 17px; }.contact-location { grid-template-columns: 62px 1fr; }.contact-details strong, .contact-location strong { font-size: 10px; }
+  .contact { padding-bottom: 80px; }.contact-layout { grid-template-columns: 1fr; gap: 36px; margin-top: 42px; }.contact h2 { font-size: 75px; }.contact-copy { font-size: 12px; }.contact-form { gap: 14px; }.contact-form-row { grid-template-columns: 1fr; gap: 14px; }.contact-form .contact-button { width: 100%; }
   .site-footer { min-height: 103px; flex-wrap: wrap; gap: 9px; padding-block: 15px; }.footer-note { order: 3; width: 100%; font-size: 6px; }.back-top { font-size: 7px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
