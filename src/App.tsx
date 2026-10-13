@@ -236,21 +236,35 @@ function ResearchPage() {
 
 function PortfolioPage({ page }: { page: string }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [contactSubmitted, setContactSubmitted] = useState(false);
+  const [contactStatus, setContactStatus] = useState<'idle' | 'sending' | 'success' | 'error' | 'not-configured'>('idle');
 
-  function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const endpoint = import.meta.env.VITE_FORMSPREE_ENDPOINT;
+    if (!endpoint || endpoint.includes('REPLACE_WITH_YOUR_FORM_ID')) {
+      setContactStatus('not-configured');
+      return;
+    }
+
+    const form = event.currentTarget;
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get('name') ?? '').trim();
-    const phone = String(formData.get('phone') ?? '').trim();
-    const email = String(formData.get('email') ?? '').trim();
-    const message = String(formData.get('message') ?? '').trim();
-    const subject = encodeURIComponent(`Portfolio message from ${name}`);
-    const body = encodeURIComponent(`Name: ${name}\nContact number: ${phone}\nEmail: ${email}\n\nMessage:\n${message}`);
-    const recipient = ['meet.meraj2000', 'gmail.com'].join('@');
+    formData.set('_subject', `Portfolio message from ${name}`);
+    setContactStatus('sending');
 
-    window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
-    setContactSubmitted(true);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Form submission failed');
+      setContactStatus('success');
+      form.reset();
+    } catch {
+      setContactStatus('error');
+    }
   }
 
   return (
@@ -346,8 +360,14 @@ function PortfolioPage({ page }: { page: string }) {
           </div>
           <label>Email<input autoComplete="email" name="email" placeholder="you@example.com" required type="email" /></label>
           <label>Message<textarea name="message" placeholder="How can I help?" required rows={5} /></label>
-          <button className="button button-primary contact-button" type="submit">Send message <ArrowIcon /></button>
-          <p className="contact-form-note" aria-live="polite">{contactSubmitted ? 'Your email app should open with the message ready to send.' : 'Submitting opens your email app so you can review and send your message.'}</p>
+          <button className="button button-primary contact-button" disabled={contactStatus === 'sending'} type="submit">{contactStatus === 'sending' ? 'Sending…' : 'Send message'} <ArrowIcon /></button>
+          <p className={`contact-form-note contact-form-note-${contactStatus}`} aria-live="polite">
+            {contactStatus === 'success' && 'Message sent. Thank you for reaching out.'}
+            {contactStatus === 'error' && 'Your message could not be sent. Please try again in a moment.'}
+            {contactStatus === 'not-configured' && 'The contact form is being set up. Please try again later.'}
+            {contactStatus === 'idle' && 'Your message will be delivered securely without opening an email app.'}
+            {contactStatus === 'sending' && 'Sending your message…'}
+          </p>
         </form></div></section>}
       </main>
 
