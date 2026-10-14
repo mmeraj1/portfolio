@@ -10,6 +10,16 @@ type ResearchDetails = {
   areas: string[];
 };
 
+type ResearchPayload = {
+  details: ResearchDetails;
+  key: CryptoKey;
+};
+
+const racPresentations = [
+  { title: 'RAC presentation 1', file: 'Mohammad_Meraj_RAC1.pptx.enc', downloadName: 'Mohammad Meraj_RAC1.pptx', iv: 'kGjpUd+XgT7a+sz1' },
+  { title: 'RAC presentation 2', file: 'Mohammad_Meraj_RAC_2.pptx.enc', downloadName: 'Mohammad Meraj_RAC_2.pptx', iv: 'P7va9k1EaGkcicKo' },
+];
+
 function decodeBase64(value: string): ArrayBuffer {
   const decoded = atob(value);
   const bytes = new Uint8Array(decoded.length);
@@ -19,7 +29,7 @@ function decodeBase64(value: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-async function decryptResearch(passphrase: string): Promise<ResearchDetails> {
+async function decryptResearch(passphrase: string): Promise<ResearchPayload> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(passphrase),
@@ -49,7 +59,25 @@ async function decryptResearch(passphrase: string): Promise<ResearchDetails> {
     key,
     authenticatedCiphertext.buffer,
   );
-  return JSON.parse(new TextDecoder().decode(plaintext)) as ResearchDetails;
+  return { details: JSON.parse(new TextDecoder().decode(plaintext)) as ResearchDetails, key };
+}
+
+async function downloadRacPresentation(presentation: (typeof racPresentations)[number], key: CryptoKey): Promise<void> {
+  const response = await fetch(`${import.meta.env.BASE_URL}rac/${presentation.file}`);
+  if (!response.ok) throw new Error('Presentation download failed');
+  const ciphertext = await response.arrayBuffer();
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: decodeBase64(presentation.iv), tagLength: 128 },
+    key,
+    ciphertext,
+  );
+  const file = new Blob([plaintext], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
+  const downloadUrl = URL.createObjectURL(file);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = presentation.downloadName;
+  link.click();
+  URL.revokeObjectURL(downloadUrl);
 }
 
 const navigation = [
@@ -158,15 +186,20 @@ function ArrowIcon() {
 function ResearchPage() {
   const [passphrase, setPassphrase] = useState('');
   const [details, setDetails] = useState<ResearchDetails | null>(null);
+  const [researchKey, setResearchKey] = useState<CryptoKey | null>(null);
   const [error, setError] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState(false);
 
   async function handleUnlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(false);
     setIsUnlocking(true);
     try {
-      setDetails(await decryptResearch(passphrase));
+      const unlocked = await decryptResearch(passphrase);
+      setDetails(unlocked.details);
+      setResearchKey(unlocked.key);
       setPassphrase('');
     } catch {
       setError(true);
@@ -212,6 +245,19 @@ function ResearchPage() {
 
   const [headingFirstLine, headingSecondLine] = details.heading.split(', ', 2);
 
+  async function handlePresentationDownload(presentation: (typeof racPresentations)[number]) {
+    if (!researchKey) return;
+    setDownloading(presentation.file);
+    setDownloadError(false);
+    try {
+      await downloadRacPresentation(presentation, researchKey);
+    } catch {
+      setDownloadError(true);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
   return (
     <section className="research section-wrap section-pad" id="research">
       <div className="section-kicker"><span>05 / RESEARCH</span><span>PHD · {details.university}</span></div>
@@ -230,6 +276,30 @@ function ResearchPage() {
           <div className="research-card-footer"><span>{details.university}</span><span>DATA SCIENCE &amp; AI <i>↗</i></span></div>
         </article>
       </div>
+      <section className="rac-presentations" aria-labelledby="rac-presentations-heading">
+        <div className="rac-heading">
+          <div>
+            <p className="research-overline">RAC</p>
+            <h3 id="rac-presentations-heading">Research presentations</h3>
+          </div>
+          <span className="mono">PRIVATE MATERIALS</span>
+        </div>
+        <div className="rac-presentation-list">
+          {racPresentations.map((presentation, index) => (
+            <article className="rac-presentation" key={presentation.file}>
+              <span className="rac-number mono">0{index + 1}</span>
+              <div className="rac-presentation-copy">
+                <h4>{presentation.title}</h4>
+                <span>PowerPoint presentation · Encrypted download</span>
+              </div>
+              <button className="rac-download" disabled={downloading !== null} onClick={() => void handlePresentationDownload(presentation)} type="button">
+                {downloading === presentation.file ? 'Decrypting…' : 'Download'} <ArrowIcon />
+              </button>
+            </article>
+          ))}
+        </div>
+        {downloadError && <p className="research-access-error" role="alert">The presentation could not be decrypted or downloaded. Please unlock again and retry.</p>}
+      </section>
     </section>
   );
 }

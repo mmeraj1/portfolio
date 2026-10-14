@@ -29,3 +29,5 @@ The contact form sends directly from the page using Formspree; visitors do not n
 3. For GitHub Pages, open the repository's **Settings → Secrets and variables → Actions → Variables**, add a repository variable named `VITE_FORMSPREE_ENDPOINT`, and set its value to the form endpoint. Push a commit or rerun the Pages workflow.
 
 The endpoint is a public form identifier, not a secret. Keep recipient email configuration inside Formspree, not in this repository. Until the endpoint is configured in GitHub Actions, the live form will display a setup message instead of attempting to send.
+
+The Research page's RAC presentation downloads are AES-GCM encrypted and are only offered after the Research access code unlocks the page.
