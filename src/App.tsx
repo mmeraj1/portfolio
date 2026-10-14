@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import encryptedResearch from './research-content.enc.json';
 
@@ -16,8 +16,8 @@ type ResearchPayload = {
 };
 
 const racPresentations = [
-  { title: 'RAC presentation 1', file: 'Mohammad_Meraj_RAC1.pptx.enc', downloadName: 'Mohammad Meraj_RAC1.pptx', iv: 'kGjpUd+XgT7a+sz1' },
-  { title: 'RAC presentation 2', file: 'Mohammad_Meraj_RAC_2.pptx.enc', downloadName: 'Mohammad Meraj_RAC_2.pptx', iv: 'P7va9k1EaGkcicKo' },
+  { title: 'RAC presentation 1', file: 'Mohammad_Meraj_RAC1.pptx.enc', downloadName: 'Mohammad Meraj_RAC1.pptx', iv: 'kGjpUd+XgT7a+sz1', previewFile: 'Mohammad_Meraj_RAC1.pdf.enc', previewIv: 'Gmjyj4jWfj1cXMRs' },
+  { title: 'RAC presentation 2', file: 'Mohammad_Meraj_RAC_2.pptx.enc', downloadName: 'Mohammad Meraj_RAC_2.pptx', iv: 'P7va9k1EaGkcicKo', previewFile: 'Mohammad_Meraj_RAC_2.pdf.enc', previewIv: 'Auwp7e5QbhsRWzTx' },
 ];
 
 function decodeBase64(value: string): ArrayBuffer {
@@ -62,15 +62,19 @@ async function decryptResearch(passphrase: string): Promise<ResearchPayload> {
   return { details: JSON.parse(new TextDecoder().decode(plaintext)) as ResearchDetails, key };
 }
 
-async function downloadRacPresentation(presentation: (typeof racPresentations)[number], key: CryptoKey): Promise<void> {
-  const response = await fetch(`${import.meta.env.BASE_URL}rac/${presentation.file}`);
+async function decryptRacAsset(file: string, iv: string, key: CryptoKey): Promise<ArrayBuffer> {
+  const response = await fetch(`${import.meta.env.BASE_URL}rac/${file}`);
   if (!response.ok) throw new Error('Presentation download failed');
   const ciphertext = await response.arrayBuffer();
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: decodeBase64(presentation.iv), tagLength: 128 },
+  return crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: decodeBase64(iv), tagLength: 128 },
     key,
     ciphertext,
   );
+}
+
+async function downloadRacPresentation(presentation: (typeof racPresentations)[number], key: CryptoKey): Promise<void> {
+  const plaintext = await decryptRacAsset(presentation.file, presentation.iv, key);
   const file = new Blob([plaintext], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' });
   const downloadUrl = URL.createObjectURL(file);
   const link = document.createElement('a');
@@ -78,6 +82,64 @@ async function downloadRacPresentation(presentation: (typeof racPresentations)[n
   link.download = presentation.downloadName;
   link.click();
   URL.revokeObjectURL(downloadUrl);
+}
+
+function RacPdfPreview({ data }: { data: ArrayBuffer }) {
+  const [pages, setPages] = useState<string[]>([]);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let destroyLoadingTask: (() => void) | null = null;
+
+    async function renderPages() {
+      try {
+        const [pdfjs, worker] = await Promise.all([
+          import('pdfjs-dist'),
+          import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+        ]);
+        if (cancelled) return;
+        pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+        const loadingTask = pdfjs.getDocument({ data: new Uint8Array(data), useSystemFonts: true });
+        destroyLoadingTask = () => { void loadingTask.destroy(); };
+        const pdf = await loadingTask.promise;
+        const renderedPages: string[] = [];
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber);
+          const originalViewport = page.getViewport({ scale: 1 });
+          const scale = Math.min(1.25, 920 / originalViewport.width);
+          const viewport = page.getViewport({ scale: scale * pixelRatio });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Unable to render slide preview');
+
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          await page.render({ canvas, canvasContext: context, viewport }).promise;
+          renderedPages.push(canvas.toDataURL('image/jpeg', 0.88));
+          canvas.width = 0;
+          canvas.height = 0;
+        }
+
+        if (!cancelled) setPages(renderedPages);
+      } catch {
+        if (!cancelled) setHasError(true);
+      }
+    }
+
+    void renderPages();
+    return () => {
+      cancelled = true;
+      destroyLoadingTask?.();
+    };
+  }, [data]);
+
+  if (hasError) return <p className="rac-preview-error" role="alert">The slides could not be rendered. Please use the download button instead.</p>;
+  if (pages.length === 0) return <p className="rac-preview-loading" role="status">Preparing slide preview…</p>;
+
+  return <div className="rac-pdf-pages">{pages.map((src, index) => <figure className="rac-pdf-page" key={index}><img alt={`Slide ${index + 1}`} src={src} /><figcaption>SLIDE {String(index + 1).padStart(2, '0')} / {String(pages.length).padStart(2, '0')}</figcaption></figure>)}</div>;
 }
 
 const navigation = [
@@ -191,6 +253,8 @@ function ResearchPage() {
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState(false);
+  const [preview, setPreview] = useState<{ title: string; data: ArrayBuffer } | null>(null);
+  const [previewing, setPreviewing] = useState<string | null>(null);
 
   async function handleUnlock(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -258,6 +322,24 @@ function ResearchPage() {
     }
   }
 
+  async function handlePresentationPreview(presentation: (typeof racPresentations)[number]) {
+    if (!researchKey) return;
+    setPreviewing(presentation.file);
+    setDownloadError(false);
+    try {
+      const pdf = await decryptRacAsset(presentation.previewFile, presentation.previewIv, researchKey);
+      setPreview({ title: presentation.title, data: pdf });
+    } catch {
+      setDownloadError(true);
+    } finally {
+      setPreviewing(null);
+    }
+  }
+
+  function closePreview() {
+    setPreview(null);
+  }
+
   return (
     <section className="research section-wrap section-pad" id="research">
       <div className="section-kicker"><span>05 / RESEARCH</span><span>PHD · {details.university}</span></div>
@@ -290,16 +372,27 @@ function ResearchPage() {
               <span className="rac-number mono">0{index + 1}</span>
               <div className="rac-presentation-copy">
                 <h4>{presentation.title}</h4>
-                <span>PowerPoint presentation · Encrypted download</span>
+                <span>PowerPoint presentation · Private slide preview</span>
               </div>
-              <button className="rac-download" disabled={downloading !== null} onClick={() => void handlePresentationDownload(presentation)} type="button">
-                {downloading === presentation.file ? 'Decrypting…' : 'Download'} <ArrowIcon />
-              </button>
+              <div className="rac-actions">
+                <button className="rac-preview" disabled={previewing !== null} onClick={() => void handlePresentationPreview(presentation)} type="button">
+                  {previewing === presentation.file ? 'Preparing…' : 'Preview'}
+                </button>
+                <button className="rac-download" disabled={downloading !== null} onClick={() => void handlePresentationDownload(presentation)} type="button">
+                  {downloading === presentation.file ? 'Decrypting…' : 'Download'} <ArrowIcon />
+                </button>
+              </div>
             </article>
           ))}
         </div>
         {downloadError && <p className="research-access-error" role="alert">The presentation could not be decrypted or downloaded. Please unlock again and retry.</p>}
       </section>
+      {preview && <div className="rac-preview-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closePreview(); }}>
+        <section aria-label={`${preview.title} slide preview`} aria-modal="true" className="rac-preview-dialog" role="dialog">
+          <header className="rac-preview-header"><div><span className="mono">RAC · PRIVATE PREVIEW</span><h3>{preview.title}</h3></div><button aria-label="Close preview" className="rac-preview-close" onClick={closePreview} type="button">×</button></header>
+          <RacPdfPreview data={preview.data} />
+        </section>
+      </div>}
     </section>
   );
 }

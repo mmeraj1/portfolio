@@ -164,9 +164,25 @@ h2 { margin-bottom: 0; font-size: clamp(42px, 5.5vw, 70px); line-height: 1.08; l
 .rac-number { color: var(--lime); font-size: 9px; }
 .rac-presentation-copy h4 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
 .rac-presentation-copy > span { color: #858b7e; font-size: 9px; }
+.rac-actions { display: flex; align-items: center; gap: 8px; }
+.rac-preview { min-height: 40px; padding: 0 13px; border: 1px solid var(--line); border-radius: 3px; color: #c3c6bc; background: transparent; font: 9px var(--mono); cursor: pointer; transition: color .2s ease, border-color .2s ease; }
+.rac-preview:hover:not(:disabled) { color: var(--lime); border-color: rgba(210,251,88,.45); }
+.rac-preview:disabled { cursor: wait; opacity: .65; }
 .rac-download { min-height: 40px; padding: 0 13px; border: 1px solid rgba(210,251,88,.42); border-radius: 3px; color: var(--lime); background: transparent; font: 9px var(--mono); letter-spacing: .04em; cursor: pointer; transition: background .2s ease, color .2s ease; }
 .rac-download:hover:not(:disabled) { color: var(--bg); background: var(--lime); }
 .rac-download:disabled { cursor: wait; opacity: .65; }
+.rac-preview-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 24px; background: rgba(6,8,6,.86); backdrop-filter: blur(8px); animation: route-arrive .2s ease both; }
+.rac-preview-dialog { width: min(1040px, 100%); height: min(850px, 92vh); display: grid; grid-template-rows: auto 1fr; overflow: hidden; border: 1px solid rgba(210,251,88,.3); border-radius: 4px; background: #151813; box-shadow: 0 28px 90px rgba(0,0,0,.65); }
+.rac-preview-header { min-height: 74px; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
+.rac-preview-header .mono { color: #858b7e; font-size: 8px; }
+.rac-preview-header h3 { margin: 5px 0 0; color: var(--text); font-size: 15px; font-weight: 600; }
+.rac-preview-close { width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 3px; color: var(--lime); background: transparent; font-size: 25px; line-height: 1; cursor: pointer; }
+.rac-pdf-pages { min-height: 0; overflow: auto; display: grid; align-content: start; justify-items: center; gap: 22px; padding: 22px; background: #22251f; }
+.rac-pdf-page { width: min(100%, 920px); margin: 0; background: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.38); }
+.rac-pdf-page img { display: block; width: 100%; height: auto; }
+.rac-pdf-page figcaption { padding: 9px 12px; color: #858b7e; background: #151813; font: 8px var(--mono); letter-spacing: .08em; }
+.rac-preview-loading, .rac-preview-error { align-self: center; justify-self: center; margin: 24px; color: #aeb2a7; font-size: 12px; }
+.rac-preview-error { color: #ff9cba; }
 .research-lock-card { padding-bottom: 0; }
 .research-access-form { display: grid; gap: 12px; margin-top: 28px; }
 .research-access-form label { color: #858b7e; font: 8px var(--mono); letter-spacing: .08em; }
@@ -212,7 +228,7 @@ h2 { margin-bottom: 0; font-size: clamp(42px, 5.5vw, 70px); line-height: 1.08; l
   .education-band { grid-template-columns: 1fr 1fr; gap: 24px 15px; }.degree strong { font-size: 11px; }.degree-cert { grid-column: 1 / -1; }
   .research-layout { grid-template-columns: 1fr; gap: 30px; margin-top: 42px; }.research-intro h2 { font-size: 48px; }.research-intro > p:last-child { font-size: 12px; }.research-card { padding: 21px 18px 0; }.research-card h3 { margin-block: 23px; font-size: 21px; }.research-tags span { font-size: 8px; padding: 7px 8px; }
   .research-access-form .button { width: 100%; }
-  .rac-presentations { margin-top: 52px; padding-top: 23px; }.rac-heading { align-items: start; flex-direction: column; gap: 8px; }.rac-heading h3 { font-size: 22px; }.rac-presentation { grid-template-columns: 26px 1fr; gap: 12px; }.rac-download { grid-column: 2; justify-self: start; }
+  .rac-presentations { margin-top: 52px; padding-top: 23px; }.rac-heading { align-items: start; flex-direction: column; gap: 8px; }.rac-heading h3 { font-size: 22px; }.rac-presentation { grid-template-columns: 26px 1fr; gap: 12px; }.rac-actions { grid-column: 2; }.rac-preview, .rac-download { min-height: 38px; padding-inline: 10px; }.rac-preview-backdrop { padding: 10px; }.rac-preview-dialog { height: 94vh; }.rac-preview-header { min-height: 65px; padding: 12px; }
   .contact { padding-bottom: 80px; }.contact-layout { grid-template-columns: 1fr; gap: 36px; margin-top: 42px; }.contact h2 { font-size: 75px; }.contact-copy { font-size: 12px; }.contact-form { gap: 14px; }.contact-form-row { grid-template-columns: 1fr; gap: 14px; }.contact-form .contact-button { width: 100%; }
   .site-footer { min-height: 103px; flex-wrap: wrap; gap: 9px; padding-block: 15px; }.footer-note { order: 3; width: 100%; font-size: 6px; }.back-top { font-size: 7px; }
 }

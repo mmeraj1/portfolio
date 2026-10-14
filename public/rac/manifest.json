@@ -4,13 +4,17 @@
     "file": "Mohammad_Meraj_RAC1.pptx.enc",
     "iv": "kGjpUd+XgT7a+sz1",
     "sha256": "8af413811784af683f88b2dc8f9336af989ae9acf0925e8e8dc39801314dba0e",
-    "size": 141756
+    "size": 141756,
+    "previewFile": "Mohammad_Meraj_RAC1.pdf.enc",
+    "previewIv": "Gmjyj4jWfj1cXMRs"
   },
   {
     "title": "RAC presentation 2",
     "file": "Mohammad_Meraj_RAC_2.pptx.enc",
     "iv": "P7va9k1EaGkcicKo",
     "sha256": "9b9c8390cdbc5f6bcdd4628ac00d333a404853c9fb8119fbd9e4a06d3c5bbd89",
-    "size": 297053
+    "size": 297053,
+    "previewFile": "Mohammad_Meraj_RAC_2.pdf.enc",
+    "previewIv": "Auwp7e5QbhsRWzTx"
   }
 ]
