@@ -21,7 +21,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="section-wrap page">
-      <Link className="back-link" to="/projects#personal-research">← All projects</Link>
+      <Link className="back-link" to={project.area === 'research' ? '/research' : '/projects#personal-applications'}>{project.area === 'research' ? '← Research' : '← All projects'}</Link>
       <header className="page-header">
         <p className="eyebrow">{project.categories.join(' · ')}</p>
         <h1 className="page-title">{project.title}</h1>

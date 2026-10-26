@@ -17,13 +17,6 @@ function Block({ id, title, intro, children }: { id: string; title: string; intr
 
 const sentenceCase = (value: string) => value.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
 
-const specializations = [
-  { title: 'Generative & agentic AI', text: 'Multi-agent systems and retrieval-augmented generation with human-in-the-loop review.' },
-  { title: 'Machine learning & data science', text: 'Predictive modelling, segmentation and anomaly detection for BFSI, insurance and cybersecurity.' },
-  { title: 'Computer vision research', text: 'PhD research alongside applied image-enhancement and object-detection projects.' },
-  { title: 'Production AI engineering', text: 'FastAPI services, cloud deployment, observability and CI/CD around AI systems.' },
-];
-
 export default function AboutPage() {
   return (
     <div className="section-wrap page">
@@ -41,7 +34,6 @@ export default function AboutPage() {
         </div>
         <dl className="facts">
           <div><dt>12+</dt><dd>Years in technology</dd></div>
-          <div><dt>4%</dt><dd>Sales increase enabled</dd></div>
           <div><dt>3</dt><dd>Disciplines: AI, data and engineering</dd></div>
         </dl>
       </Block>
@@ -78,14 +70,6 @@ export default function AboutPage() {
           <li><p className="role-period">In progress</p><div><h3>{currentStudy.title}</h3><p className="role-company">{currentStudy.institution}</p></div></li>
           {education.map((item) => (
             <li key={item.title}><p className="role-period">{item.period}</p><div><h3>{item.title}</h3><p className="role-company">{item.institution}</p></div></li>
-          ))}
-        </ul>
-      </Block>
-
-      <Block id="specialization" title="Areas of specialization" intro="Where my work is concentrated.">
-        <ul className="spec-list">
-          {specializations.map((item) => (
-            <li key={item.title}><h3>{item.title}</h3><p>{item.text}</p></li>
           ))}
         </ul>
       </Block>

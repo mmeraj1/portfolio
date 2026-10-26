@@ -4,6 +4,7 @@ import { SiteFooter, SiteHeader } from './components/SiteChrome';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
 import ProjectsPage from './components/projects/ProjectsPage';
+import ResearchShowcase from './components/research/ResearchShowcase';
 import ProjectDetail from './components/projects/ProjectDetail';
 import encryptedResearch from './research-content.enc.json';
 
@@ -151,7 +152,7 @@ function ArrowIcon() {
   return <span aria-hidden="true" className="arrow-icon">→</span>;
 }
 
-function ResearchPage() {
+function ResearchGate() {
   const [passphrase, setPassphrase] = useState('');
   const [details, setDetails] = useState<ResearchDetails | null>(null);
   const [researchKey, setResearchKey] = useState<CryptoKey | null>(null);
@@ -181,12 +182,12 @@ function ResearchPage() {
   if (!details) {
     return (
       <section className="research section-wrap section-pad" id="research">
-        <div className="section-kicker"><span>Research</span><span>Access restricted</span></div>
+        <div className="section-kicker"><span>Private research</span><span>Access restricted</span></div>
         <div className="research-layout research-locked-layout">
           <div className="research-intro">
             <p className="research-overline">PRIVATE RESEARCH</p>
-            <h2>Research is<br /><span>access restricted.</span></h2>
-            <p>This research overview is protected. Enter the access code to continue.</p>
+            <h2>Detailed research is<br /><span>access restricted.</span></h2>
+            <p>The detailed overview, experiment results and presentations are protected. Enter the access code to continue.</p>
           </div>
           <article className="research-card research-lock-card">
             <div className="research-card-top"><span className="mono">ACCESS REQUIRED</span><span className="research-symbol" aria-hidden="true">⌑</span></div>
@@ -300,6 +301,15 @@ function ResearchPage() {
         </section>
       </div>}
     </section>
+  );
+}
+
+function ResearchPage() {
+  return (
+    <>
+      <ResearchShowcase />
+      <ResearchGate />
+    </>
   );
 }
 

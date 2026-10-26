@@ -15,7 +15,7 @@ function Brand() {
   return (
     <Link className="brand" to="/" aria-label="Mohammad Meraj, home">
       <span className="brand-mark" aria-hidden="true">MM</span>
-      <span className="brand-copy"><strong>Mohammad Meraj</strong><small>Generative AI Engineer · Lead Data Scientist</small></span>
+      <span className="brand-copy"><strong>Mohammad Meraj</strong></span>
     </Link>
   );
 }
@@ -58,11 +58,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer">
       <div className="footer-inner">
-        <Brand />
-        <nav className="footer-nav" aria-label="Footer navigation">
-          {navigation.map(([label, path]) => <Link key={path} to={path}>{label}</Link>)}
-          <a href={resumeUrl} target="_blank" rel="noreferrer">Resume</a>
-        </nav>
+        <p>© {new Date().getFullYear()} All rights reserved.</p>
       </div>
     </footer>
   );

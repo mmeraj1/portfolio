@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { professionalWork } from '../../data/profile';
 import { projects } from '../../data/projects';
 import ProjectCard from './ProjectCard';
@@ -6,14 +7,15 @@ import ProjectFilter, { type ProjectFilterValue } from './ProjectFilter';
 
 export default function ProjectsPage() {
   const [filter, setFilter] = useState<ProjectFilterValue>('All Projects');
-  const visible = useMemo(() => filter === 'All Projects' ? projects : projects.filter((p) => p.categories.includes(filter)), [filter]);
+  const practical = useMemo(() => projects.filter((p) => p.area === 'practical'), []);
+  const visible = useMemo(() => filter === 'All Projects' ? practical : practical.filter((p) => p.categories.includes(filter)), [filter, practical]);
 
   return (
     <div className="section-wrap page">
       <header className="page-header">
         <p className="eyebrow">Projects</p>
-        <h1 className="page-title">AI &amp; Research Projects</h1>
-        <p className="page-lead">Building practical AI applications and advancing robust computer vision.</p>
+        <h1 className="page-title">AI Projects</h1>
+        <p className="page-lead">Professional engineering work and practical AI applications.</p>
       </header>
 
       <section className="pj-section" id="professional-work" aria-labelledby="professional-work-heading">
@@ -34,12 +36,12 @@ export default function ProjectsPage() {
         </div>
       </section>
 
-      <section className="pj-section" id="personal-research" aria-labelledby="personal-research-heading">
+      <section className="pj-section" id="personal-applications" aria-labelledby="personal-applications-heading">
         <header className="pj-section-head">
-          <h2 id="personal-research-heading">Personal &amp; research projects</h2>
-          <p>Independent applications and research experiments. Each project will have its own repository.</p>
+          <h2 id="personal-applications-heading">Personal AI applications</h2>
+          <p>Independent, deployable applications. Research experiments are on the <Link to="/research">Research</Link> page.</p>
         </header>
-        <ProjectFilter value={filter} onChange={setFilter} />
+        {practical.length > 3 && <ProjectFilter value={filter} onChange={setFilter} />}
         {visible.length > 0
           ? <div className="pj-grid">{visible.map((project) => <ProjectCard key={project.id} project={project} />)}</div>
           : <p className="pj-empty" role="status">No projects in this category yet.</p>}

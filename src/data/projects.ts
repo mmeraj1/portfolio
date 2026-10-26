@@ -14,6 +14,8 @@ export interface Project {
   githubUrl?: string;
   /** Add only once a working demo is deployed. */
   demoUrl?: string;
+  /** 'practical' projects appear under Projects; 'research' projects appear under Research. */
+  area: 'practical' | 'research';
   status: ProjectStatus;
   features: string[];
   /** Optional long-form content for the detail page. */
@@ -36,6 +38,7 @@ export const projects: Project[] = [
     categories: ['Computer Vision'],
     technologies: ['Python', 'OpenCV', 'FastAPI', 'React', 'TypeScript'],
     githubUrl: 'https://github.com/mmeraj1/ai-image-enhancement',
+    area: 'practical',
     status: 'In Development',
     features: ['Upload an image', 'Four enhancement methods: Auto, CLAHE contrast, Gamma brightness, Sharpen', 'Before-and-after comparison slider', 'Download enhanced image'],
     details: {
@@ -57,6 +60,7 @@ export const projects: Project[] = [
     description: 'Fog removal and visibility enhancement for road scenes, supporting research into robust object detection under adverse weather conditions.',
     categories: ['Computer Vision', 'Research'],
     technologies: [],
+    area: 'research',
     status: 'Coming Soon',
     features: [],
   },
@@ -67,6 +71,7 @@ export const projects: Project[] = [
     description: 'Enhancing nighttime driving scenes to improve visibility and support robust perception systems.',
     categories: ['Deep Learning', 'Research'],
     technologies: [],
+    area: 'research',
     status: 'Coming Soon',
     features: [],
   },
@@ -77,6 +82,7 @@ export const projects: Project[] = [
     description: 'An efficient object detection application for identifying vehicles, pedestrians and other road users, designed for practical deployment.',
     categories: ['Computer Vision', 'Deep Learning'],
     technologies: [],
+    area: 'research',
     status: 'Coming Soon',
     features: [],
   },
@@ -87,6 +93,7 @@ export const projects: Project[] = [
     description: 'Experimental comparison of source-only and domain-adaptive object detection methods for clear-to-foggy driving scenarios.',
     categories: ['Research'],
     technologies: [],
+    area: 'research',
     status: 'Research In Progress',
     features: [],
   },
