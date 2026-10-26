@@ -1,5 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import ProjectsPage from './components/projects/ProjectsPage';
+import ProjectDetail from './components/projects/ProjectDetail';
 import encryptedResearch from './research-content.enc.json';
 
 type ResearchDetails = {
@@ -147,6 +149,7 @@ const navigation = [
   ['About', '/about'],
   ['Expertise', '/expertise'],
   ['Work', '/work'],
+  ['Projects', '/projects'],
   ['Experience', '/experience'],
   ['Research', '/research'],
   ['Contact', '/contact'],
@@ -397,7 +400,7 @@ function ResearchPage() {
   );
 }
 
-function PortfolioPage({ page }: { page: string }) {
+function PortfolioPage({ page, children }: { page: string; children?: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactStatus, setContactStatus] = useState<'idle' | 'sending' | 'success' | 'error' | 'not-configured'>('idle');
 
@@ -449,6 +452,7 @@ function PortfolioPage({ page }: { page: string }) {
       </header>
 
       <main className="route-page" key={page}>
+        {children}
         {page === 'home' && <>
           <section className="hero section-wrap" id="home">
             <div className="hero-copy">
@@ -547,6 +551,8 @@ function App() {
         <Route path="/about" element={<PortfolioPage page="about" />} />
         <Route path="/expertise" element={<PortfolioPage page="expertise" />} />
         <Route path="/work" element={<PortfolioPage page="work" />} />
+        <Route path="/projects" element={<PortfolioPage page="projects"><ProjectsPage /></PortfolioPage>} />
+        <Route path="/projects/:slug" element={<PortfolioPage page="project-detail"><ProjectDetail /></PortfolioPage>} />
         <Route path="/experience" element={<PortfolioPage page="experience" />} />
         <Route path="/research" element={<PortfolioPage page="research" />} />
         <Route path="/contact" element={<PortfolioPage page="contact" />} />
