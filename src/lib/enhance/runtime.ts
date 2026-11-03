@@ -91,4 +91,9 @@ export function loadSession(spec: ModelSpec, onProgress: (loaded: number, total:
   return promise;
 }
 
-export const yieldToUi = () => new Promise<void>((r) => setTimeout(r));
+/** MessageChannel yields are not throttled in background tabs, unlike setTimeout. */
+export const yieldToUi = () => new Promise<void>((resolve) => {
+  const { port1, port2 } = new MessageChannel();
+  port1.onmessage = () => { port1.close(); resolve(); };
+  port2.postMessage(null);
+});

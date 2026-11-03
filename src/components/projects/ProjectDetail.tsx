@@ -19,6 +19,19 @@ export default function ProjectDetail() {
   }
   const { details } = project;
 
+  if (project.slug === 'ai-image-enhancement') {
+    return (
+      <div className="section-wrap page">
+        <Link className="back-link" to="/projects#personal-applications">← All projects</Link>
+        <header className="page-header">
+          <h1 className="page-title">AI Photo Enhancement</h1>
+          <p className="page-lead"><em>Bring your old photographs back to life.</em></p>
+        </header>
+        <section id="demo" className="pe-main"><EnhancementDemo /></section>
+      </div>
+    );
+  }
+
   return (
     <div className="section-wrap page">
       <Link className="back-link" to={project.area === 'research' ? '/research' : '/projects#personal-applications'}>{project.area === 'research' ? '← Research' : '← All projects'}</Link>
@@ -36,9 +49,7 @@ export default function ProjectDetail() {
           {details && <section><h2>Architecture</h2><List items={details.architecture} /></section>}
           <section id="demo">
             <h2>Live demo</h2>
-            {project.slug === 'ai-image-enhancement'
-              ? <EnhancementDemo />
-              : !project.demoUrl && <p>No demo is available yet. This project is marked “{project.status}”.</p>}
+            {!project.demoUrl && <p>No demo is available yet. This project is marked “{project.status}”.</p>}
           </section>
           {details && <section><h2>Future improvements</h2><List items={details.futureImprovements} /></section>}
         </div>

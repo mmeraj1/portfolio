@@ -1,4 +1,5 @@
 import { TILE_SIZE, blendWeights, reflect101, tileStarts } from './tiling';
+import { yieldToUi } from './runtime';
 
 type Ort = typeof import('onnxruntime-web/webgpu');
 type Session = import('onnxruntime-web/webgpu').InferenceSession;
@@ -122,7 +123,7 @@ export async function deblur(source: HTMLCanvasElement, onProgress: (p: DeblurPr
       }
       done++;
       onProgress({ done, total: totalTiles });
-      await new Promise((r) => setTimeout(r)); // let the UI repaint between tiles
+      await yieldToUi(); // let the UI repaint between tiles
     }
   }
 

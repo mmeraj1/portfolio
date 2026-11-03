@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ImageComparisonSlider from './ImageComparisonSlider';
 import CornerCropper from './CornerCropper';
+import PhotoUpload from './PhotoUpload';
 import { detectPhoto } from '../../lib/enhance/detect';
 import { rectifiedSize, warpQuad, polygonArea } from '../../lib/enhance/geometry';
 import type { Quad } from '../../lib/enhance/geometry';
-import { rgbToLab } from '../../lib/enhance/lab';
 import { fitWithin, tileCount } from '../../lib/enhance/tiling';
 
 /**
@@ -12,22 +12,22 @@ import { fitWithin, tileCount } from '../../lib/enhance/tiling';
  * fallback). Pipeline: detect the print -> perspective-correct -> DDColor colorization ->
  * Real-ESRGAN restoration -> optional DeblurGAN-v2. Nothing is uploaded.
  */
-const MAX_BYTES = 10 * 1024 * 1024;
 const BASE_SIDE = 3000;
-const mb = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
-const backendLabel = (b: string) => (b === 'webgpu' ? 'WebGPU' : 'WebAssembly (CPU)');
+const COLOR_INTENSITY = 0.85;
+const DETAIL_STRENGTH = 0.8;
 
-type StepStatus = 'pending' | 'running' | 'done' | 'skipped' | 'failed';
-interface Step { id: string; label: string; status: StepStatus; detail: string }
+type StepStatus = 'pending' | 'running' | 'done' | 'failed';
+interface Step { id: keyof EnhancementOptions; label: string; status: StepStatus }
 interface Progress { label: string; value: number | null }
-interface Stage { label: string; url: string }
 type CropState = 'pending' | 'applied' | 'skipped';
+interface EnhancementOptions { colorize: boolean; deblur: boolean; background: boolean }
 
-const stepDefs = (colorize: boolean, restoreOn: boolean, deblurOn: boolean): Step[] => [
-  { id: 'colorize', label: 'AI colorization (DDColor)', status: colorize ? 'pending' : 'skipped', detail: colorize ? '' : 'Off' },
-  { id: 'restore', label: 'Restoration & background enhancement (Real-ESRGAN)', status: restoreOn ? 'pending' : 'skipped', detail: restoreOn ? '' : 'Off' },
-  { id: 'deblur', label: 'Deblur (DeblurGAN-v2)', status: deblurOn ? 'pending' : 'skipped', detail: deblurOn ? '' : 'Off' },
+const OPTION_CARDS: { key: keyof EnhancementOptions; title: string; text: string }[] = [
+  { key: 'colorize', title: 'Colorize Photo', text: 'Add natural colors to old black-and-white or faded photos.' },
+  { key: 'deblur', title: 'Remove Blur', text: 'Improve sharpness and reduce blur.' },
+  { key: 'background', title: 'Enhance Photo Details', text: 'Reduce noise and recover detail across the whole photo.' },
 ];
+const STEP_LABELS: Record<keyof EnhancementOptions, string> = { colorize: 'Adding colors', deblur: 'Removing blur', background: 'Enhancing details' };
 
 const canvasBlob = (c: HTMLCanvasElement) => new Promise<Blob>((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('The result image could not be encoded.'))), 'image/png'));
 
@@ -45,15 +45,6 @@ function scaled(source: HTMLCanvasElement | HTMLImageElement, maxSide: number): 
 
 const readPixels = (c: HTMLCanvasElement) => c.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, c.width, c.height);
 
-/** Mean Lab chroma on a small copy: low for black-and-white and sepia photographs. */
-function meanChroma(canvas: HTMLCanvasElement): number {
-  const small = scaled(canvas, 96);
-  const { data } = readPixels(small);
-  let sum = 0;
-  for (let i = 0; i < data.length; i += 4) { const [, a, b] = rgbToLab(data[i], data[i + 1], data[i + 2]); sum += Math.hypot(a, b); }
-  return sum / (data.length / 4);
-}
-
 export default function EnhancementDemo() {
   const [file, setFile] = useState<File | null>(null);
   const [base, setBase] = useState<HTMLCanvasElement | null>(null);
@@ -64,21 +55,12 @@ export default function EnhancementDemo() {
   const [working, setWorking] = useState<HTMLCanvasElement | null>(null);
   const [workingUrl, setWorkingUrl] = useState<string | null>(null);
   const [includeBorder, setIncludeBorder] = useState(false);
-  const [doColorize, setDoColorize] = useState(false);
-  const [doRestore, setDoRestore] = useState(true);
-  const [doDeblur, setDoDeblur] = useState(false);
-  const [intensity, setIntensity] = useState(0.85);
-  const [strength, setStrength] = useState(0.8);
-  const [outScale, setOutScale] = useState<1 | 2>(1);
+  const [options, setOptions] = useState<EnhancementOptions>({ colorize: false, deblur: false, background: false });
   const [steps, setSteps] = useState<Step[]>([]);
-  const [stages, setStages] = useState<Stage[]>([]);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState<Progress | null>(null);
-  const [runInfo, setRunInfo] = useState('');
-  const [dragging, setDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const urls = useRef<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -86,27 +68,21 @@ export default function EnhancementDemo() {
   const track = (blob: Blob) => { const u = URL.createObjectURL(blob); urls.current.push(u); return u; };
   const busy = state === 'loading';
 
-  function resetResults() { setResultUrl(null); setStages([]); setSteps([]); setRunInfo(''); setState('idle'); setMessage(''); setProgress(null); }
+  function resetResults() { abortRef.current?.abort(); setResultUrl(null); setSteps([]); setState('idle'); setMessage(''); setProgress(null); }
 
-  async function accept(f: File | undefined) {
-    if (!f) return;
-    if (!f.type.startsWith('image/')) { setState('error'); setMessage('Please choose an image file (PNG, JPEG or WebP).'); return; }
-    if (f.size > MAX_BYTES) { setState('error'); setMessage('Image is larger than 10 MB.'); return; }
-    const url = URL.createObjectURL(f);
-    const img = new Image();
-    try {
-      img.src = url;
-      await img.decode();
-    } catch {
-      URL.revokeObjectURL(url);
-      setState('error'); setMessage('This image could not be decoded by your browser.');
-      return;
-    }
-    const canvas = scaled(img, BASE_SIDE);
-    URL.revokeObjectURL(url);
+  function resetAll() {
     resetResults();
-    setFile(f); setBase(canvas); setWorking(null); setWorkingUrl(null); setCropState('pending'); setIncludeBorder(false);
-    setDoColorize(meanChroma(canvas) < 28);
+    urls.current.forEach(URL.revokeObjectURL); urls.current = [];
+    setFile(null); setBase(null); setQuad(null); setAutoQuads(null); setCropNote('');
+    setWorking(null); setWorkingUrl(null); setCropState('pending'); setIncludeBorder(false);
+    setOptions({ colorize: false, deblur: false, background: false });
+  }
+
+  function onPhotoSelected(f: File | null, image?: HTMLImageElement) {
+    resetAll();
+    if (!f || !image) return;
+    const canvas = scaled(image, BASE_SIDE);
+    setFile(f); setBase(canvas);
     runAutoDetect(canvas);
   }
 
@@ -150,198 +126,172 @@ export default function EnhancementDemo() {
     if (next) setQuad(next);
   }
 
-  const updateStep = (id: string, patch: Partial<Step>) => setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  const downloadProgress = (name: string) => (l: number, t: number) => setProgress({ label: `Downloading ${name} ${mb(l)} / ${mb(t)}`, value: t ? l / t : null });
-  const stageLabel = (label: string) => setProgress({ label, value: null });
-
   async function run() {
     if (!working) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     const { signal } = controller;
-    resetResults();
+    setResultUrl(null); setMessage('');
     setState('loading');
-    setSteps(stepDefs(doColorize, doRestore, doDeblur));
-    const gallery: Stage[] = [];
-    const infos: string[] = [];
-    const started = performance.now();
+    const selected = (Object.keys(options) as (keyof EnhancementOptions)[]).filter((k) => options[k]);
+    setSteps(selected.map((id) => ({ id, label: STEP_LABELS[id], status: 'pending' })));
     let current = working;
     let failures = 0;
     const timer = window.setTimeout(() => controller.abort(), 900_000);
-    const record = async (label: string, canvas: HTMLCanvasElement) => { gallery.push({ label, url: track(await canvasBlob(canvas)) }); setStages([...gallery]); };
+    const setStep = (id: keyof EnhancementOptions, status: StepStatus) => setSteps((prev) => prev.map((x) => (x.id === id ? { ...x, status } : x)));
+    const download = (l: number, t: number) => setProgress({ label: 'Preparing the enhancement model…', value: t ? l / t : null });
+    const busyLabel = (label: string) => setProgress({ label, value: null });
 
     try {
-      await record('Cropped original', working);
-      if (doColorize) {
-        updateStep('colorize', { status: 'running' });
+      if (options.colorize) {
+        setStep('colorize', 'running');
         try {
-          const { loadColorizer, colorize, DDCOLOR_BYTES } = await import('../../lib/enhance/colorize');
-          const model = await loadColorizer(downloadProgress('DDColor model'), stageLabel);
-          stageLabel('Colorizing…');
-          const t0 = performance.now();
+          const { loadColorizer, colorize } = await import('../../lib/enhance/colorize');
+          const model = await loadColorizer(download, busyLabel);
+          busyLabel('Adding colors…');
           const result = await colorize(current, model, signal);
-          current = result.canvasAtIntensity(intensity);
-          const detail = `${backendLabel(model.backend)} · ${((performance.now() - t0) / 1000).toFixed(1)}s · model ${mb(DDCOLOR_BYTES)}${model.fromCache ? ' (cached)' : ''}`;
-          updateStep('colorize', { status: 'done', detail });
-          infos.push(`Colorization: ${detail}`);
-          await record('Colorized', current);
+          current = result.canvasAtIntensity(COLOR_INTENSITY);
+          setStep('colorize', 'done');
         } catch (err) {
           if (signal.aborted) throw err;
-          failures++;
-          updateStep('colorize', { status: 'failed', detail: (err as Error).message });
+          failures++; setStep('colorize', 'failed');
         }
       }
 
-      if (doRestore) {
-        updateStep('restore', { status: 'running' });
-        try {
-          const { loadRestorer, restore } = await import('../../lib/enhance/restore');
-          const model = await loadRestorer(downloadProgress('restoration model'), stageLabel);
-          const cap = (model.backend === 'webgpu' ? 1600 : 640) / outScale;
-          const input = Math.max(current.width, current.height) > cap ? scaled(current, cap) : current;
-          const t0 = performance.now();
-          const result = await restore(input, model, { outputScale: outScale, strength }, (done, total) => setProgress({ label: `Restoring tile ${done} of ${total}`, value: done / total }), signal);
-          const resized = input !== current ? ` (downscaled to ${input.width}×${input.height} for this browser)` : '';
-          const detail = `${backendLabel(model.backend)} · ${result.width}×${result.height}px${resized} · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
-          current = result;
-          updateStep('restore', { status: 'done', detail });
-          infos.push(`Restoration: ${detail}`);
-          await record('Restored', current);
-        } catch (err) {
-          if (signal.aborted) throw err;
-          failures++;
-          updateStep('restore', { status: 'failed', detail: (err as Error).message });
-        }
-      }
-
-      if (doDeblur) {
-        updateStep('deblur', { status: 'running' });
+      if (options.deblur) {
+        setStep('deblur', 'running');
         try {
           const { loadModel, deblur } = await import('../../lib/enhance/deblur');
-          const info = await loadModel(downloadProgress('DeblurGAN-v2 model'), stageLabel);
+          const info = await loadModel(download, busyLabel);
           const size = fitWithin(current.width, current.height, info.backend === 'webgpu' ? 2048 : 1024);
           const input = size.width === current.width ? current : scaled(current, Math.max(size.width, size.height));
           const total = tileCount(input.width, input.height);
-          const t0 = performance.now();
-          current = await deblur(input, (p) => setProgress({ label: `Deblurring tile ${p.done} of ${p.total}`, value: p.done / total }), signal);
-          const detail = `${backendLabel(info.backend)} · ${total} tiles · ${((performance.now() - t0) / 1000).toFixed(1)}s`;
-          updateStep('deblur', { status: 'done', detail });
-          infos.push(`Deblur: ${detail}`);
-          await record('Deblurred', current);
+          current = await deblur(input, (p) => setProgress({ label: 'Removing blur…', value: p.done / total }), signal);
+          setStep('deblur', 'done');
         } catch (err) {
           if (signal.aborted) throw err;
-          failures++;
-          updateStep('deblur', { status: 'failed', detail: (err as Error).message });
+          failures++; setStep('deblur', 'failed');
+        }
+      }
+
+      if (options.background) {
+        setStep('background', 'running');
+        try {
+          const { loadRestorer, restore } = await import('../../lib/enhance/restore');
+          const model = await loadRestorer(download, busyLabel);
+          const cap = model.backend === 'webgpu' ? 1600 : 640;
+          const input = Math.max(current.width, current.height) > cap ? scaled(current, cap) : current;
+          current = await restore(input, model, { outputScale: 1, strength: DETAIL_STRENGTH }, (done, total) => setProgress({ label: 'Enhancing details…', value: done / total }), signal);
+          setStep('background', 'done');
+        } catch (err) {
+          if (signal.aborted) throw err;
+          failures++; setStep('background', 'failed');
         }
       }
 
       if (current === working) {
-        setState('error'); setMessage(doColorize || doRestore || doDeblur ? 'No enhancement step completed, so there is no result to show.' : 'Select at least one enhancement step.');
+        setState('error'); setMessage('The enhancement could not be completed in this browser. Try a different option or a smaller photo.');
       } else {
-        setResultUrl(gallery[gallery.length - 1].url);
+        setResultUrl(track(await canvasBlob(current)));
         setState('success');
-        setMessage(failures ? `Finished with ${failures} step${failures > 1 ? 's' : ''} unavailable in this browser.` : 'Restoration complete.');
-        setRunInfo(`${infos.join(' · ')} · total ${((performance.now() - started) / 1000).toFixed(1)}s`);
+        setMessage(failures ? 'Some enhancements were unavailable in this browser and were skipped.' : '');
       }
     } catch (err) {
       setState('error');
-      setMessage(signal.aborted ? 'Processing was cancelled or took too long.' : (err as Error).message);
+      setMessage(signal.aborted ? 'Enhancement was cancelled or took too long.' : (err as Error).message);
     } finally {
       window.clearTimeout(timer);
       setProgress(null);
-      setSteps((prev) => prev.map((s) => (s.status === 'running' ? { ...s, status: 'failed', detail: 'Stopped' } : s)));
     }
   }
 
-  const outName = file ? `restored-${file.name.replace(/\.[^.]+$/, '')}.png` : 'restored.png';
+  const outName = file ? `enhanced-${file.name.replace(/\.[^.]+$/, '')}.png` : 'enhanced.png';
   const cropArea = quad && base ? polygonArea(quad) / (base.width * base.height) : 1;
   const fullQuad = quad && base && quad.every((p, i) => Math.abs(p.x - (i === 1 || i === 2 ? base.width : 0)) < 1 && Math.abs(p.y - (i >= 2 ? base.height : 0)) < 1);
+  const anySelected = options.colorize || options.deblur || options.background;
+  const stage = !base ? 1 : cropState === 'pending' ? 2 : state === 'loading' ? 4 : resultUrl ? 5 : 3;
+  const STAGES = ['Upload', 'Crop', 'Enhance', 'Download'];
+  const activeStage = stage === 1 ? 0 : stage === 2 ? 1 : stage === 3 || stage === 4 ? 2 : 3;
+  const toggle = (key: keyof EnhancementOptions) => setOptions((prev) => ({ ...prev, [key]: !prev[key] }));
+  const focusHandle = () => { setCropNote('Drag any of the four corners onto the corners of the photograph.'); document.querySelector<HTMLElement>('.pj-handle')?.focus(); };
 
   return (
-    <div className="pj-demo">
-      <p className="pj-notice"><strong>Runs in your browser.</strong> Photos are processed locally and never uploaded. Models are downloaded on first use (colorization ≈ 135 MB, restoration ≈ 5 MB, deblur ≈ 23 MB) and cached. Colorization estimates plausible colours — it cannot recover the original ones — and GAN models may invent fine detail.</p>
-      <div
-        className={dragging ? 'pj-drop pj-drop-active' : 'pj-drop'}
-        onDragOver={(e: DragEvent) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)}
-        onDrop={(e: DragEvent) => { e.preventDefault(); setDragging(false); void accept(e.dataTransfer.files[0]); }}
-        role="button" tabIndex={0} aria-label="Upload an image" onClick={() => inputRef.current?.click()}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inputRef.current?.click(); } }}
-      >
-        <input ref={inputRef} type="file" accept="image/*" hidden data-testid="image-input" onChange={(e) => { void accept(e.target.files?.[0]); e.target.value = ''; }} />
-        <p><strong>Drag &amp; drop a photo</strong> or click to browse</p>
-        <small>PNG, JPEG or WebP · up to 10 MB · a phone photo of a printed picture works best</small>
-      </div>
+    <div className="pj-demo pe-app">
+      <ol className="pe-steps" aria-label="Progress">
+        {STAGES.map((label, i) => <li key={label} className={i === activeStage ? 'pe-step pe-step-active' : i < activeStage ? 'pe-step pe-step-done' : 'pe-step'} aria-current={i === activeStage ? 'step' : undefined}><span>{i + 1}</span>{label}</li>)}
+      </ol>
+
+      <PhotoUpload photoName={file?.name} disabled={busy} onPhotoSelected={onPhotoSelected} />
 
       {base && quad && cropState === 'pending' && (
-        <div className="pj-crop">
-          <h4>1 · Find the photograph</h4>
+        <section className="pe-panel" aria-label="Crop photo">
+          <h3>Crop your photo</h3>
           <CornerCropper base={base} quad={quad} disabled={busy} onChange={setQuad} />
-          {cropNote && <small className="pj-crop-note" role="status" data-testid="crop-note">{cropNote}</small>}
+          {cropNote && <p className="pe-hint" role="status" data-testid="crop-note">{cropNote}</p>}
           {autoQuads?.print && autoQuads.photo && (
-            <label className="pj-check"><input type="checkbox" checked={includeBorder} onChange={(e) => toggleBorder(e.target.checked)} /> Include the paper border around the picture</label>
+            <label className="pe-check"><input type="checkbox" checked={includeBorder} onChange={(e) => toggleBorder(e.target.checked)} /> Include the paper border around the picture</label>
           )}
-          {cropArea < 0.25 && !fullQuad && <small className="pj-warn" role="alert">This crop covers only {Math.round(cropArea * 100)}% of the image — make sure no faces are cut off.</small>}
-          <div className="pj-crop-controls">
-            <button type="button" className="pj-btn pj-btn-primary" disabled={busy} onClick={applyCrop}>Apply crop</button>
-            <button type="button" className="pj-btn" disabled={busy} onClick={() => base && runAutoDetect(base)}>Auto detect</button>
-            <button type="button" className="pj-btn" disabled={busy} onClick={() => base && setQuad([{ x: 0, y: 0 }, { x: base.width, y: 0 }, { x: base.width, y: base.height }, { x: 0, y: base.height }])}>Reset</button>
-            <button type="button" className="pj-btn" disabled={busy} onClick={skipCrop}>Skip cropping</button>
+          {cropArea < 0.25 && !fullQuad && <p className="pj-warn" role="alert">This crop covers only {Math.round(cropArea * 100)}% of the image — make sure no faces are cut off.</p>}
+          <div className="pe-actions">
+            <button type="button" className="pj-btn" onClick={() => base && runAutoDetect(base)}>Auto Crop</button>
+            <button type="button" className="pj-btn" onClick={focusHandle}>Adjust Crop</button>
+            <button type="button" className="pj-btn pj-btn-primary" onClick={applyCrop}>Apply Crop</button>
+            <button type="button" className="pj-btn" onClick={skipCrop}>Skip Crop</button>
           </div>
-        </div>
+        </section>
       )}
 
-      {working && (
-        <div className="pj-crop">
-          <h4>2 · Restore</h4>
-          <p className="pj-crop-note">{cropState === 'applied' ? `Perspective-corrected crop ready (${working.width}×${working.height}px).` : 'Using the whole image (cropping skipped).'} <button type="button" className="pj-link" disabled={busy} onClick={editCrop}>Edit crop</button></p>
-          <div className="pj-options">
-            <label className="pj-check"><input type="checkbox" checked={doColorize} disabled={busy} onChange={(e) => setDoColorize(e.target.checked)} /> AI colorization (DDColor) — for black-and-white or sepia photos</label>
-            {doColorize && <label>Colour intensity: {Math.round(intensity * 100)}%<input type="range" min={0.2} max={1} step={0.05} value={intensity} disabled={busy} onChange={(e) => setIntensity(Number(e.target.value))} /></label>}
-            <label className="pj-check"><input type="checkbox" checked={doRestore} disabled={busy} onChange={(e) => setDoRestore(e.target.checked)} /> Restoration &amp; background enhancement (Real-ESRGAN) — denoise, sharpen, recover detail</label>
-            {doRestore && <>
-              <label>Restoration strength: {Math.round(strength * 100)}%<input type="range" min={0.2} max={1} step={0.05} value={strength} disabled={busy} onChange={(e) => setStrength(Number(e.target.value))} /></label>
-              <label>Output size<select value={outScale} disabled={busy} onChange={(e) => setOutScale(Number(e.target.value) as 1 | 2)}><option value={1}>Same size</option><option value={2}>2× larger</option></select></label>
-            </>}
-            <label className="pj-check"><input type="checkbox" checked={doDeblur} disabled={busy} onChange={(e) => setDoDeblur(e.target.checked)} /> Extra deblur pass (DeblurGAN-v2)</label>
+      {working && !resultUrl && state !== 'loading' && (
+        <section className="pe-panel" aria-label="Choose enhancements">
+          <div className="pe-cropped">
+            {workingUrl && <img src={workingUrl} alt="Cropped photograph" />}
+            <div>
+              <h3>Choose enhancements</h3>
+              <p className="pe-hint">{cropState === 'applied' ? 'Crop applied.' : 'Using the whole image.'} <button type="button" className="pj-link" onClick={editCrop}>Edit Crop</button></p>
+            </div>
           </div>
-          <div className="pj-controls">
-            <button type="button" className="pj-btn pj-btn-primary" disabled={busy || !(doColorize || doRestore || doDeblur)} onClick={() => void run()}>{busy ? 'Processing…' : 'Restore photo'}</button>
-            {busy && <button type="button" className="pj-btn" onClick={() => abortRef.current?.abort()}>Cancel</button>}
-            {resultUrl
-              ? <a className="pj-btn" href={resultUrl} download={outName}>Download restored image</a>
-              : <button type="button" className="pj-btn" disabled>Download restored image</button>}
+          <div className="enhancement-options">
+            {OPTION_CARDS.map((c) => (
+              <label key={c.key} className={options[c.key] ? 'enhancement-card enhancement-card-on' : 'enhancement-card'}>
+                <input type="checkbox" checked={options[c.key]} onChange={() => toggle(c.key)} />
+                <span><strong>{c.title}</strong><small>{c.text}</small></span>
+              </label>
+            ))}
           </div>
-        </div>
+          <p className="pe-hint">Colors are an AI estimate, not the photo's true original colors. Enhancement can add plausible detail that was not in the original.</p>
+          <div className="pe-actions">
+            <button type="button" className="pj-btn pj-btn-primary" disabled={!anySelected} onClick={() => void run()}>Enhance Photo</button>
+          </div>
+          {state === 'error' && <p className="pj-msg pj-msg-error" role="alert">{message}</p>}
+        </section>
       )}
 
-      {steps.length > 0 && (
-        <ol className="pj-steps" aria-label="Pipeline status">
-          {steps.map((s) => <li key={s.id} className={`pj-step pj-step-${s.status}`} data-testid={`step-${s.id}`}><strong>{s.label}</strong> <span>{s.status}{s.detail ? ` — ${s.detail}` : ''}</span></li>)}
-        </ol>
+      {state === 'loading' && (
+        <section className="pe-panel pe-processing" aria-label="Enhancing" aria-live="polite">
+          <div className="pe-spinner" aria-hidden="true" />
+          <h3>Enhancing your photograph...</h3>
+          {progress && <p className="pe-hint">{progress.label}</p>}
+          {progress && <progress max={1} value={progress.value ?? undefined} />}
+          <ul className="pe-todo">
+            {steps.map((x) => <li key={x.id} className={`pe-todo-${x.status}`}>{x.label}{x.status === 'done' ? ' ✓' : x.status === 'failed' ? ' — unavailable' : ''}</li>)}
+          </ul>
+          <button type="button" className="pj-btn" onClick={() => abortRef.current?.abort()}>Cancel</button>
+        </section>
       )}
-      {progress && (
-        <div className="pj-progress" role="status" aria-live="polite">
-          <span>{progress.label}</span>
-          <progress max={1} value={progress.value ?? undefined} />
-        </div>
-      )}
-      <p className={`pj-msg pj-msg-${state}`} role="status" aria-live="polite">{message}</p>
-      {runInfo && <small className="pj-run-info" data-testid="run-info">{runInfo}</small>}
 
-      {stages.length > 1 && (
-        <div className="pj-stages">
-          {stages.map((s) => <figure key={s.label}><figcaption>{s.label}</figcaption><img src={s.url} alt={s.label} /></figure>)}
-        </div>
-      )}
       {workingUrl && resultUrl && (
-        <>
-          <div className="pj-previews">
-            <figure><figcaption>Before (cropped)</figcaption><img src={workingUrl} alt="Cropped original" /></figure>
-            <figure><figcaption>Restored</figcaption><img src={resultUrl} alt="Restored result" data-testid="enhanced-image" /></figure>
+        <section className="pe-panel pe-result" aria-label="Result" data-testid="enhanced-image" data-url={resultUrl}>
+          <h3>Your Enhanced Photo</h3>
+          <ImageComparisonSlider before={workingUrl} after={resultUrl} beforeLabel="Original" afterLabel="Enhanced" />
+          {message && <p className="pe-hint" role="status">{message}</p>}
+          <div className="pe-actions">
+            <a className="pj-btn pj-btn-primary" href={resultUrl} download={outName}>Download Enhanced Photo</a>
+            <button type="button" className="pj-btn" onClick={() => { setResultUrl(null); setSteps([]); setState('idle'); setMessage(''); }}>Edit Enhancements</button>
+            <button type="button" className="pj-btn" onClick={editCrop}>Edit Crop</button>
+            <button type="button" className="pj-btn" onClick={resetAll}>Try Another Photo</button>
           </div>
-          <div className="pj-slider-wrap"><h4>Before / After</h4><ImageComparisonSlider before={workingUrl} after={resultUrl} /></div>
-        </>
+        </section>
       )}
     </div>
   );
