@@ -499,3 +499,7 @@ h3 { font-size: 1.0625rem; font-weight: 650; line-height: 1.35; letter-spacing: 
   .pe-panel { animation: none; }
   .pe-spinner { animation-duration: 3s; }
 }
+
+.pe-strength { display: grid; gap: 0.4rem; margin: 1rem 0 0; color: var(--text-muted, #aebbd6); font-size: 0.9rem; }
+.pe-strength b { color: var(--cyan); font-weight: 600; }
+.pe-strength input { width: 100%; accent-color: var(--cyan); }

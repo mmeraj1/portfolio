@@ -13,7 +13,6 @@ import { fitWithin, tileCount } from '../../lib/enhance/tiling';
  * Real-ESRGAN restoration -> optional DeblurGAN-v2. Nothing is uploaded.
  */
 const BASE_SIDE = 3000;
-const COLOR_INTENSITY = 0.85;
 const DETAIL_STRENGTH = 0.8;
 
 type StepStatus = 'pending' | 'running' | 'done' | 'failed';
@@ -56,6 +55,7 @@ export default function EnhancementDemo() {
   const [workingUrl, setWorkingUrl] = useState<string | null>(null);
   const [includeBorder, setIncludeBorder] = useState(false);
   const [options, setOptions] = useState<EnhancementOptions>({ colorize: false, deblur: false, background: false });
+  const [colorStrength, setColorStrength] = useState(100);
   const [steps, setSteps] = useState<Step[]>([]);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [state, setState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -76,6 +76,7 @@ export default function EnhancementDemo() {
     setFile(null); setBase(null); setQuad(null); setAutoQuads(null); setCropNote('');
     setWorking(null); setWorkingUrl(null); setCropState('pending'); setIncludeBorder(false);
     setOptions({ colorize: false, deblur: false, background: false });
+    setColorStrength(100);
   }
 
   function onPhotoSelected(f: File | null, image?: HTMLImageElement) {
@@ -134,7 +135,7 @@ export default function EnhancementDemo() {
     const { signal } = controller;
     setResultUrl(null); setMessage('');
     setState('loading');
-    const selected = (Object.keys(options) as (keyof EnhancementOptions)[]).filter((k) => options[k]);
+    const selected = (['deblur', 'background', 'colorize'] as const).filter((k) => options[k]);
     setSteps(selected.map((id) => ({ id, label: STEP_LABELS[id], status: 'pending' })));
     let current = working;
     let failures = 0;
@@ -144,21 +145,6 @@ export default function EnhancementDemo() {
     const busyLabel = (label: string) => setProgress({ label, value: null });
 
     try {
-      if (options.colorize) {
-        setStep('colorize', 'running');
-        try {
-          const { loadColorizer, colorize } = await import('../../lib/enhance/colorize');
-          const model = await loadColorizer(download, busyLabel);
-          busyLabel('Adding colors…');
-          const result = await colorize(current, model, signal);
-          current = result.canvasAtIntensity(COLOR_INTENSITY);
-          setStep('colorize', 'done');
-        } catch (err) {
-          if (signal.aborted) throw err;
-          failures++; setStep('colorize', 'failed');
-        }
-      }
-
       if (options.deblur) {
         setStep('deblur', 'running');
         try {
@@ -187,6 +173,22 @@ export default function EnhancementDemo() {
         } catch (err) {
           if (signal.aborted) throw err;
           failures++; setStep('background', 'failed');
+        }
+      }
+
+      // Colorize last: DeblurGAN and Real-ESRGAN were trained on colour photos and wash out predicted chroma.
+      if (options.colorize) {
+        setStep('colorize', 'running');
+        try {
+          const { loadColorizer, colorize } = await import('../../lib/enhance/colorize');
+          const model = await loadColorizer(download, busyLabel);
+          busyLabel('Adding colors…');
+          const result = await colorize(current, model, signal);
+          current = result.canvasAtIntensity(colorStrength / 100);
+          setStep('colorize', 'done');
+        } catch (err) {
+          if (signal.aborted) throw err;
+          failures++; setStep('colorize', 'failed');
         }
       }
 
@@ -259,6 +261,12 @@ export default function EnhancementDemo() {
               </label>
             ))}
           </div>
+          {options.colorize && (
+            <label className="pe-strength">
+              <span>Color strength <b>{colorStrength}%</b></span>
+              <input type="range" min={0} max={100} step={5} value={colorStrength} onChange={(e) => setColorStrength(Number(e.target.value))} aria-label="Color strength" />
+            </label>
+          )}
           <p className="pe-hint">Colors are an AI estimate, not the photo's true original colors. Enhancement can add plausible detail that was not in the original.</p>
           <div className="pe-actions">
             <button type="button" className="pj-btn pj-btn-primary" disabled={!anySelected} onClick={() => void run()}>Enhance Photo</button>
