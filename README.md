@@ -30,4 +30,10 @@ The contact form sends directly from the page using Formspree; visitors do not n
 
 The endpoint is a public form identifier, not a secret. Keep recipient email configuration inside Formspree, not in this repository. Until the endpoint is configured in GitHub Actions, the live form will display a setup message instead of attempting to send.
 
+## AI image enhancement demo
+
+The [AI image enhancement backend](./ai-image-enhancement/) is kept in this portfolio folder. To run the GAN models locally, follow [its setup instructions](./ai-image-enhancement/README.md), start its FastAPI service on port `8000`, and set `VITE_ENHANCE_API_URL=http://localhost:8000` in `.env` before running the portfolio. The photo crop and cleanup can be regenerated with `python scripts/restore_framed_photo.py` from that backend directory; the result is written to its ignored `test_outputs/` folder. GAN weights are downloaded into the backend's local cache and are not part of this portfolio.
+
+The demo sends uploaded images to the configured backend. For a public deployment, configure `VITE_ENHANCE_API_URL` as a GitHub Actions variable and use a backend you trust; GitHub Pages itself does not run the models.
+
 The Research page's RAC presentation downloads are AES-GCM encrypted and are only offered after the Research access code unlocks the page.

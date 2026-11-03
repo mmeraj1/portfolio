@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import ImageComparisonSlider from './ImageComparisonSlider';
 
 /**
- * Backend contract (to be implemented separately):
+ * Backend contract:
  *   POST {VITE_ENHANCE_API_URL}/enhance   multipart/form-data: file, method
  *   -> 200 with the enhanced image as the response body (image/*)
  * When VITE_ENHANCE_API_URL is unset the demo is shown as "not connected".
@@ -10,7 +10,9 @@ import ImageComparisonSlider from './ImageComparisonSlider';
 const API_URL = (import.meta.env.VITE_ENHANCE_API_URL as string | undefined)?.replace(/\/$/, '');
 const MAX_BYTES = 10 * 1024 * 1024;
 const methods = [
-  { id: 'auto', label: 'Auto Enhance' },
+  { id: 'deblur', label: 'DeblurGAN-v2 — deblur (GAN)' },
+  { id: 'colorize', label: 'DeOldify — colorize (GAN)' },
+  { id: 'auto', label: 'Auto Enhance (OpenCV)' },
   { id: 'clahe', label: 'Contrast (CLAHE)' },
   { id: 'gamma', label: 'Brightness (Gamma)' },
   { id: 'sharpen', label: 'Sharpen' },
@@ -44,7 +46,7 @@ export default function EnhancementDemo() {
     if (!API_URL || !file) return;
     setState('loading'); setMessage('');
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 90_000);
+    const timer = window.setTimeout(() => controller.abort(), 300_000);
     try {
       const body = new FormData();
       body.set('file', file); body.set('method', method);
@@ -72,6 +74,7 @@ export default function EnhancementDemo() {
   return (
     <div className="pj-demo">
       {!connected && <p className="pj-notice" role="status"><strong>Backend not connected.</strong> No enhancement service is configured for this build, so enhancement is disabled. You can still preview an upload locally; nothing is sent anywhere.</p>}
+      {connected && <p className="pj-notice"><strong>Processing note.</strong> The image is uploaded to the configured backend. GANs may alter or invent detail; DeOldify predicts plausible colors rather than recovering the original colors.</p>}
       <div
         className={dragging ? 'pj-drop pj-drop-active' : 'pj-drop'}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}
@@ -84,7 +87,7 @@ export default function EnhancementDemo() {
       </div>
 
       <div className="pj-controls">
-        <label>Enhancement method
+        <label>Model or method
           <select value={method} onChange={(e) => setMethod(e.target.value)}>{methods.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}</select>
         </label>
         <button type="button" className="pj-btn pj-btn-primary" disabled={!connected || !file || state === 'loading'} onClick={enhance}>{state === 'loading' ? 'Enhancing…' : 'Enhance Image'}</button>
