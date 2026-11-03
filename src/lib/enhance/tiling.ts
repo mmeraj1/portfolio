@@ -37,3 +37,21 @@ export function reflect101(i: number, n: number): number {
   const m = ((i % period) + period) % period;
   return m < n ? m : period - m;
 }
+
+/** Tile origins for an arbitrary tile size and overlap. */
+export function tileStartsFor(length: number, tile: number, overlap: number): number[] {
+  if (length <= tile) return [0];
+  const stride = tile - overlap;
+  const starts: number[] = [];
+  for (let s = 0; s <= length - tile; s += stride) starts.push(s);
+  if (starts[starts.length - 1] !== length - tile) starts.push(length - tile);
+  return starts;
+}
+
+export function blendWeightsFor(tile: number): Float32Array {
+  const w1 = new Float32Array(tile);
+  for (let i = 0; i < tile; i++) w1[i] = Math.max(0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (tile - 1)), 0.05);
+  const w = new Float32Array(tile * tile);
+  for (let y = 0; y < tile; y++) for (let x = 0; x < tile; x++) w[y * tile + x] = w1[y] * w1[x];
+  return w;
+}

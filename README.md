@@ -32,9 +32,14 @@ The endpoint is a public form identifier, not a secret. Keep recipient email con
 
 ## AI image enhancement demo
 
-The demo on the AI Image Enhancement project page runs **DeblurGAN-v2 entirely in the visitor's browser** with ONNX Runtime Web (WebGPU, falling back to WebAssembly). Photos never leave the device and no backend is needed. The model is served from `public/models/deblurgan-v2-fp16.onnx` (~23 MB, float16 weights) and is downloaded on the first enhancement. It was exported from the pretrained Keras generator by `ai-image-enhancement/scripts/export_onnx.py`. Automatic photo-border detection and manual crop sliders live in `src/lib/enhance/`.
+The AI Image Enhancement demo is an old-photo restoration pipeline that runs **entirely in the visitor's browser** with ONNX Runtime Web (WebGPU or WebAssembly). Photos never leave the device and no backend is needed.
 
-Optionally, the [Python backend](./ai-image-enhancement/) in this folder adds DeOldify colorization and OpenCV filters. Run it locally (see [its README](./ai-image-enhancement/README.md)) and set `VITE_ENHANCE_API_URL=http://localhost:8000` in `.env`, or set it as a GitHub Actions variable for a deployment you host. Leave it unset for the browser-only demo.
+1. **Photo detection and perspective correction** (`src/lib/enhance/detect.ts`, `geometry.ts`) with draggable corner handles for manual correction.
+2. **Colorization** with DDColor-tiny (Apache-2.0, not a GAN). The ~135 MB fp16 model is downloaded from Hugging Face on first use and cached; it is not stored in this repo.
+3. **Restoration** with Real-ESRGAN general-x4v3 (`public/models/realesrgan-general-x4v3.onnx`, ~5 MB), tiled.
+4. Optional **DeblurGAN-v2** pass (`public/models/deblurgan-v2-fp16.onnx`, ~23 MB).
+
+Not implemented: scratch/dust removal and inpainting. Colorization estimates plausible colours and cannot recover the originals.
 
 Run the unit tests with `npm test`.
 
