@@ -9,7 +9,7 @@ import ImageComparisonSlider from './ImageComparisonSlider';
  */
 const API_URL = (import.meta.env.VITE_ENHANCE_API_URL as string | undefined)?.replace(/\/$/, '');
 const MAX_BYTES = 10 * 1024 * 1024;
-const methods = [
+const allMethods = [
   { id: 'deblur', label: 'DeblurGAN-v2 — deblur (GAN)' },
   { id: 'colorize', label: 'DeOldify — colorize (GAN)' },
   { id: 'auto', label: 'Auto Enhance (OpenCV)' },
@@ -18,13 +18,16 @@ const methods = [
   { id: 'sharpen', label: 'Sharpen' },
 ];
 
+type Status = 'checking' | 'online' | 'offline';
 type State = 'idle' | 'loading' | 'success' | 'error';
 
 export default function EnhancementDemo() {
   const [file, setFile] = useState<File | null>(null);
   const [original, setOriginal] = useState<string | null>(null);
   const [enhanced, setEnhanced] = useState<string | null>(null);
-  const [method, setMethod] = useState(methods[0].id);
+  const [methods, setMethods] = useState(allMethods);
+  const [method, setMethod] = useState(allMethods[0].id);
+  const [status, setStatus] = useState<Status>(API_URL ? 'checking' : 'offline');
   const [state, setState] = useState<State>('idle');
   const [message, setMessage] = useState('');
   const [dragging, setDragging] = useState(false);
@@ -32,6 +35,19 @@ export default function EnhancementDemo() {
   const urls = useRef<string[]>([]);
 
   useEffect(() => () => urls.current.forEach(URL.revokeObjectURL), []);
+  useEffect(() => {
+    if (!API_URL) return;
+    const controller = new AbortController();
+    fetch(`${API_URL}/methods`, { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('bad status'))))
+      .then((j: { methods: string[] }) => {
+        const available = allMethods.filter((m) => j.methods.includes(m.id));
+        if (available.length) { setMethods(available); setMethod(available[0].id); }
+        setStatus('online');
+      })
+      .catch(() => { if (!controller.signal.aborted) setStatus('offline'); });
+    return () => controller.abort();
+  }, []);
   const track = (blob: Blob) => { const u = URL.createObjectURL(blob); urls.current.push(u); return u; };
 
   function accept(f: File | undefined) {
@@ -74,6 +90,7 @@ export default function EnhancementDemo() {
   return (
     <div className="pj-demo">
       {!connected && <p className="pj-notice" role="status"><strong>Backend not connected.</strong> No enhancement service is configured for this build, so enhancement is disabled. You can still preview an upload locally; nothing is sent anywhere.</p>}
+      {connected && <p className="pj-msg" role="status"><strong>Backend:</strong> {status === 'online' ? 'online' : status === 'checking' ? 'connecting… (a sleeping Space can take a minute to wake)' : 'unreachable — enhancement may fail'}</p>}
       {connected && <p className="pj-notice"><strong>Processing note.</strong> The image is uploaded to the configured backend. GANs may alter or invent detail; DeOldify predicts plausible colors rather than recovering the original colors.</p>}
       <div
         className={dragging ? 'pj-drop pj-drop-active' : 'pj-drop'}
