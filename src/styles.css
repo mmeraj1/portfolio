@@ -418,3 +418,15 @@ h3 { font-size: 1.0625rem; font-weight: 650; line-height: 1.35; letter-spacing: 
   .reveal { opacity: 1; transform: none; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0ms !important; }
 }
+
+.pj-crop { display: grid; gap: 12px; }
+.pj-crop h4 { color: var(--dim); font: 500 .75rem var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.pj-crop-stage { position: relative; width: fit-content; max-width: 100%; margin: 0 auto; }
+.pj-crop-stage img { display: block; max-width: 100%; max-height: 340px; border-radius: 6px; }
+.pj-crop-box { position: absolute; border: 2px solid var(--cyan); box-shadow: 0 0 0 9999px rgba(4, 12, 24, .6); pointer-events: none; }
+.pj-crop-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.pj-crop-controls label { display: grid; gap: 4px; min-width: 140px; color: var(--muted); font-size: .8125rem; }
+.pj-crop-note, .pj-run-info { color: var(--dim); font-size: .8125rem; }
+.pj-progress { display: grid; gap: 6px; color: var(--muted); font-size: .875rem; }
+.pj-progress progress { width: 100%; height: 8px; accent-color: var(--accent); }
+.pj-crop-stage { overflow: hidden; border-radius: 6px; }

@@ -32,8 +32,10 @@ The endpoint is a public form identifier, not a secret. Keep recipient email con
 
 ## AI image enhancement demo
 
-The [AI image enhancement backend](./ai-image-enhancement/) is kept in this portfolio folder. To run the GAN models locally, follow [its setup instructions](./ai-image-enhancement/README.md), start its FastAPI service on port `8000`, and set `VITE_ENHANCE_API_URL=http://localhost:8000` in `.env` before running the portfolio. The photo crop and cleanup can be regenerated with `python scripts/restore_framed_photo.py` from that backend directory; the result is written to its ignored `test_outputs/` folder. GAN weights are downloaded into the backend's local cache and are not part of this portfolio.
+The demo on the AI Image Enhancement project page runs **DeblurGAN-v2 entirely in the visitor's browser** with ONNX Runtime Web (WebGPU, falling back to WebAssembly). Photos never leave the device and no backend is needed. The model is served from `public/models/deblurgan-v2-fp16.onnx` (~23 MB, float16 weights) and is downloaded on the first enhancement. It was exported from the pretrained Keras generator by `ai-image-enhancement/scripts/export_onnx.py`. Automatic photo-border detection and manual crop sliders live in `src/lib/enhance/`.
 
-The demo sends uploaded images to the configured backend. For a public deployment, configure `VITE_ENHANCE_API_URL` as a GitHub Actions variable and use a backend you trust; GitHub Pages itself does not run the models.
+Optionally, the [Python backend](./ai-image-enhancement/) in this folder adds DeOldify colorization and OpenCV filters. Run it locally (see [its README](./ai-image-enhancement/README.md)) and set `VITE_ENHANCE_API_URL=http://localhost:8000` in `.env`, or set it as a GitHub Actions variable for a deployment you host. Leave it unset for the browser-only demo.
+
+Run the unit tests with `npm test`.
 
 The Research page's RAC presentation downloads are AES-GCM encrypted and are only offered after the Research access code unlocks the page.
